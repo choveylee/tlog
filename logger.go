@@ -148,6 +148,7 @@ func suffix(t time.Time) string {
 
 // Func - 截断获得下一次指定时间段的时间
 func toNextBound(duration time.Duration) time.Duration {
+	// NOTE: 按天截断, 会产生时区问题
 	return time.Now().Truncate(duration).Add(duration).Sub(time.Now())
 }
 
