@@ -1,5 +1,4 @@
 ## 日志库, 依赖conf库
-
 	import "github.com/lovenotes/conf"
 
 ### a. 配置文件需要配置如下字段
