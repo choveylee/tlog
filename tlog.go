@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/getsentry/raven-go"
-	"github.com/lovernote/conf"
+	"github.com/lovenotes/conf"
 )
 
 var (
