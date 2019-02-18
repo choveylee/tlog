@@ -33,7 +33,7 @@ func (this *LogError) Error() error {
 	return this._error
 }
 
-func (this *LogError) ErrCode() error {
+func (this *LogError) ErrCode() string {
 	return this._err_code
 }
 
