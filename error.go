@@ -23,6 +23,14 @@ func NewLogError(err error, code, msg string) *LogError {
 	}
 }
 
+func NewRawLogError(err error, msg string) *LogError {
+	return &LogError{
+		_error:       err,
+		_err_msg:     []string{msg},
+		_stack_track: raven.NewStacktrace(1, 3, []string{}),
+	}
+}
+
 func (this *LogError) AttachRequest(request *http.Request) *LogError {
 	this._request = request
 
