@@ -8,14 +8,16 @@ import (
 
 type LogError struct {
 	_error       error
+	_err_code    int
 	_err_msg     []string
 	_stack_track *raven.Stacktrace
 	_request     *http.Request
 }
 
-func NewLogError(err error, msg string) *LogError {
+func NewLogError(err error, code int, msg string) *LogError {
 	return &LogError{
 		_error:       err,
+		_err_code:    code,
 		_err_msg:     []string{msg},
 		_stack_track: raven.NewStacktrace(1, 3, []string{}),
 	}
