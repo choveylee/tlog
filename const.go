@@ -1,33 +1,20 @@
 package tlog
 
-import (
-	"log"
-	"os"
-	"time"
-)
-
 const (
-	_  = iota
-	KB = 1 << (10 * iota)
-	MB
-	GB
-	TB
-)
+	AppName = "APP_NAME"
 
-const (
-	LOG_LEVEL_ERROR = 1
-	LOG_LEVEL_WARN  = 2
-	LOG_LEVEL_INFO  = 3
-	LOG_LEVEL_DEBUG = 4
-)
+	LogLevel = "LOG_LEVEL"
 
-const (
-	LOG_CHECK_INTERVAL = 2 * time.Minute
-	LOG_CHECK_EXPIRED  = 2 * time.Hour
-)
+	LogFileEnable = "LOG_FILE_ENABLE"
 
-var (
-	_std_error = log.New(os.Stderr, "\033[0;31mERROR:\033[0m ", log.LstdFlags|log.Lshortfile)
-	_std_info  = log.New(os.Stderr, "INFO : ", log.LstdFlags|log.Lshortfile)
-	_std_warn  = log.New(os.Stderr, "\033[0;35mWARN :\033[0m ", log.LstdFlags|log.Lshortfile)
+	LogFilePath = "LOG_FILE_PATH"
+	LogFileSize = "LOG_FILE_SIZE"
+
+	LogFileRotate  = "LOG_FILE_ROTATE"
+	LogFileExpired = "LOG_FILE_EXPIRED"
+	LogFileCount   = "LOG_FILE_COUNT"
+
+	LogFileCompress = "LOG_FILE_COMPRESS"
+
+	SentryDsn = "SENTRY_DSN"
 )
