@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -32,17 +33,33 @@ type Tevent struct {
 }
 
 func init() {
+	// init zero log
 	zerolog.TimeFieldFormat = time.RFC3339
 
 	logLevel := tcfg.DefaultString(tcfg.LocalKey(LogLevel), "INFO")
 	setGlobalLevel(logLevel)
 
-	appName := tcfg.DefaultString(AppName, "default")
+	// init sentry
+	sentryDsn := tcfg.DefaultString(tcfg.LocalKey(SentryDsn), "")
+	if sentryDsn != "" {
+		err := initSentry(sentryDsn)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	// init log file & tlog
+	appName := tcfg.DefaultString(AppName, "")
+	if appName == "" {
+		_, fileName := filepath.Split(os.Args[0])
+		fileExt := filepath.Ext(os.Args[0])
+
+		appName = strings.TrimSuffix(fileName, fileExt)
+	}
 
 	var writer zerolog.LevelWriter
 
 	logFileEnable := tcfg.DefaultBool(tcfg.LocalKey(LogFileEnable), false)
-
 	if logFileEnable == true {
 		filePath := tcfg.DefaultString(tcfg.LocalKey(LogFilePath), fmt.Sprintf("%s.log", appName))
 
@@ -55,7 +72,7 @@ func init() {
 
 		fileCompress := tcfg.DefaultBool(tcfg.LocalKey(LogFileCompress), false)
 
-		rotateWriter := NewRotateWriter(filePath, fileSize, fileRotate, fileExpired, fileCount, fileCompress)
+		rotateWriter := newRotateWriter(filePath, fileSize, fileRotate, fileExpired, fileCount, fileCompress)
 
 		writer = zerolog.MultiLevelWriter(os.Stdout, &SentryWriter{}, rotateWriter)
 	} else {
@@ -64,12 +81,6 @@ func init() {
 
 	defaultLog = &Tlog{
 		logger: log.Logger.With().Str("app_name", appName).Logger().Output(writer),
-	}
-
-	// init sentry
-	err := initSentry()
-	if err != nil {
-		panic(err)
 	}
 }
 

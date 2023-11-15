@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	// MegaByte is the conversion factor between maxSize and bytes.
+	// MegaByte is the conversion factor between fileSize and bytes.
 	MegaByte = 1024 * 1024
 )
 
@@ -58,8 +58,8 @@ type RotateWriter struct {
 	// filePath is the file to write logs to
 	filePath string
 
-	// maxSize is the getMaxSize size of log file (MB)
-	maxSize int
+	// the max size of log file (MB)
+	fileSize int
 
 	fileRotate time.Duration
 
@@ -69,7 +69,7 @@ type RotateWriter struct {
 	// max count to retain history log files
 	fileCount int
 
-	// isCompress determines if the rotated log files be compressed
+	// determine if the rotated log files be compressed
 	isCompress bool
 
 	file *os.File
@@ -83,11 +83,11 @@ type RotateWriter struct {
 	sync.Mutex
 }
 
-func NewRotateWriter(filePath string, fileSize int, fileRotate, fileExpired, fileCount int, isCompress bool) *RotateWriter {
+func newRotateWriter(filePath string, fileSize int, fileRotate, fileExpired, fileCount int, isCompress bool) *RotateWriter {
 	rotateWriter := &RotateWriter{
 		filePath: filePath,
 
-		maxSize: fileSize,
+		fileSize: fileSize,
 
 		fileRotate: time.Duration(fileRotate) * time.Hour,
 
@@ -107,9 +107,9 @@ func NewRotateWriter(filePath string, fileSize int, fileRotate, fileExpired, fil
 }
 
 // Write implements io.Writer.  If a write would cause the log file to be larger
-// than maxSize, the file is closed, renamed to include a modifyTime of the
+// than fileSize, the file is closed, renamed to include a modifyTime of the
 // current time, and a new log file is created using the original log file name.
-// If the length of the write is greater than maxSize, an error is returned.
+// If the length of the write is greater than fileSize, an error is returned.
 func (p *RotateWriter) Write(data []byte) (int, error) {
 	p.Lock()
 	defer p.Unlock()
@@ -275,8 +275,8 @@ func (p *RotateWriter) getRotateFilePath() string {
 }
 
 // openLogFile opens the confFile if it exists and if the current write
-// would not put it over maxSize.  If there is no such file or the write would
-// put it over the maxSize, a new file is created.
+// would not put it over fileSize.  If there is no such file or the write would
+// put it over the fileSize, a new file is created.
 func (p *RotateWriter) openLogFile() error {
 	// init file path
 	filePath := p.getFilePath()
@@ -477,11 +477,11 @@ func parseTimeByFilename(filename, prefix, ext string) *time.Time {
 
 // getMaxSize returns the maximum size in bytes of log files before rolling.
 func (p *RotateWriter) getMaxSize() int64 {
-	if p.maxSize <= 0 {
+	if p.fileSize <= 0 {
 		return int64(DefaultMaxSize * MegaByte)
 	}
 
-	return int64(p.maxSize) * int64(MegaByte)
+	return int64(p.fileSize) * int64(MegaByte)
 }
 
 // getFileDir returns the directory for the file path.

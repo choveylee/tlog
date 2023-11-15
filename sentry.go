@@ -5,28 +5,20 @@ import (
 	"io"
 	"time"
 
-	"github.com/choveylee/tcfg"
 	"github.com/getsentry/sentry-go"
 	"github.com/json-iterator/go"
 	"github.com/rs/zerolog"
 )
 
 var (
-	sentryDsn string
-
 	sentryEnable bool
 )
 
-func initSentry() error {
-	sentryDsn := tcfg.DefaultString(SentryDsn, "")
-	if sentryDsn == "" {
-		return nil
-	}
-
+func initSentry(sentryDsn string) error {
 	retryCount := int32(0)
 
 	for {
-		err := connectSentry()
+		err := connectSentry(sentryDsn)
 		if err != nil {
 			D(context.Background()).Err(err).Msgf("init sentry (%s) err (connect sentry %v).", sentryDsn, err)
 		} else {
@@ -47,7 +39,7 @@ func initSentry() error {
 	return nil
 }
 
-func connectSentry() error {
+func connectSentry(sentryDsn string) error {
 	options := sentry.ClientOptions{
 		Dsn:              sentryDsn,
 		AttachStacktrace: true,
