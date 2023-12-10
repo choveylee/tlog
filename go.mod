@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/choveylee/tcfg v0.0.0-20231115020527-b8bdc45c86eb
-	github.com/choveylee/ttrace v0.0.0-20231210112538-25af50fda230
+	github.com/choveylee/ttrace v0.0.0-20231210113425-070b459d201c
 	github.com/getsentry/sentry-go v0.25.0
 	github.com/json-iterator/go v1.1.12
 	github.com/rs/zerolog v1.31.0

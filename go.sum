@@ -16,8 +16,8 @@ github.com/choveylee/tcfg v0.0.0-20231115020527-b8bdc45c86eb/go.mod h1:Yo4aJ152D
 github.com/choveylee/tconst v0.0.0-20221103024542-ac5c9639926c h1:oT0/bvPQBcxdJ4xU5YvtABZLr3lY+2nDJySmJT0/W+Q=
 github.com/choveylee/terror v0.0.0-20221105132813-997ba58d0bf1 h1:0mm6Dlqj3Nb7emQO/gPR7TAglwNVBeZR4pE6k3Nwrgc=
 github.com/choveylee/terror v0.0.0-20221105132813-997ba58d0bf1/go.mod h1:ozrDNSD9LQfb2c4+nzatFV5ijJmJjvlRxyuaBIhd3rg=
-github.com/choveylee/ttrace v0.0.0-20231210112538-25af50fda230 h1:MPKKQ/J5EJFBelzABKHQyTWc/fw45flQBRLvU733aCY=
-github.com/choveylee/ttrace v0.0.0-20231210112538-25af50fda230/go.mod h1:9FsFQyVVGEgDp2MzBRu9+fjYzj8I1EboQnQYT7Jayw0=
+github.com/choveylee/ttrace v0.0.0-20231210113425-070b459d201c h1:f4b+Na8JDfT3X84OhYinV2vAH3OppvMxsGuKm7WgBXA=
+github.com/choveylee/ttrace v0.0.0-20231210113425-070b459d201c/go.mod h1:9FsFQyVVGEgDp2MzBRu9+fjYzj8I1EboQnQYT7Jayw0=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
