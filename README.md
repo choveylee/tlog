@@ -32,9 +32,11 @@ func example(ctx context.Context) {
 }
 ```
 
-Configuration keys are defined as constants in this package (for example `LogLevel`, `SentryDsn`, `LogFileEnable`) and are read through `tcfg` at process init. See `go doc github.com/choveylee/tlog` for exported identifiers and `const.go` for key names.
+Configuration keys are defined as exported constants (for example `LogLevel`, `SentryDsn`, `LogFileEnable`) and are read through `tcfg` during package initialization.
 
 ## Documentation
+
+The package overview and linked references live in [`doc.go`](doc.go). View rendered documentation with:
 
 ```bash
 go doc -all github.com/choveylee/tlog

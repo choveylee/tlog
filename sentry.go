@@ -1,11 +1,3 @@
-/**
- * @Author: lidonglin
- * @Description: Sentry client initialization and error-level log forwarding
- * @File:  sentry.go
- * @Version: 1.0.0
- * @Date: 2022/10/12 17:47
- */
-
 package tlog
 
 import (
@@ -18,13 +10,13 @@ import (
 )
 
 var (
-	// sentryEnable reports whether sentry.Init completed successfully at least once.
+	// sentryEnable indicates whether sentry.Init has completed successfully at least once.
 	sentryEnable bool
 )
 
-// initSentry attempts sentry.Init up to four times with one second between failures.
-// It sets sentryEnable on success and returns nil. On exhaustion it returns the last error;
-// the caller must report failures (package init runs before the default logger exists).
+// initSentry calls sentry.Init with bounded retries (four attempts, one second apart).
+// On success it enables sentryEnable and returns nil. On failure it returns the last error;
+// the caller must log it because package initialization runs before the default logger exists.
 func initSentry(sentryDsn string) error {
 	var lastErr error
 	for attempt := 1; attempt <= 4; attempt++ {
@@ -42,7 +34,7 @@ func initSentry(sentryDsn string) error {
 	return lastErr
 }
 
-// connectSentry runs sentry.Init with stack traces attached to captured events.
+// connectSentry initializes the Sentry client with the given DSN and stack traces enabled.
 func connectSentry(sentryDsn string) error {
 	return sentry.Init(sentry.ClientOptions{
 		Dsn:              sentryDsn,
@@ -50,20 +42,19 @@ func connectSentry(sentryDsn string) error {
 	})
 }
 
-// SentryWriter implements zerolog.LevelWriter. When Sentry is enabled, error-level and fatal JSON
-// lines are unmarshalled when possible and sent to Sentry.
+// SentryWriter implements zerolog.LevelWriter by forwarding error-level JSON lines to Sentry when enabled.
 type SentryWriter struct {
 	io.Writer
 }
 
-// simpleLog captures common zerolog JSON fields for building a short title before the raw payload.
+// simpleLog holds zerolog JSON fields used to build a short title before the raw line.
 type simpleLog struct {
 	Message string `json:"message"`
 	Kind    string `json:"kind"`
 }
 
-// WriteLevel implements zerolog.LevelWriter. For levels at or above Error it forwards to Sentry
-// when enabled. It always reports len(p) bytes written and a nil error to the logger.
+// WriteLevel implements zerolog.LevelWriter. At or above Error it sends the payload to Sentry when
+// integration is active. It always returns (len(p), nil) so the zerolog pipeline does not fail.
 func (w SentryWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
 	if level >= zerolog.ErrorLevel && sentryEnable {
 		var log simpleLog

@@ -1,11 +1,3 @@
-/**
- * @Author: lidonglin
- * @Description: Size- and time-based log rotation, retention, optional gzip
- * @File:  rotate.go
- * @Version: 1.0.0
- * @Date: 2022/10/12 17:47
- */
-
 package tlog
 
 import (
@@ -26,29 +18,29 @@ import (
 )
 
 const (
-	// BackupTimeFormat is the reference time layout used in rotated backup file names.
+	// BackupTimeFormat is the Go reference time layout embedded in rotated backup filenames.
 	BackupTimeFormat = "2006_01_02T15_04_05"
-	// CompressSuffix is appended to a log path when the rotated file is gzip-compressed.
+	// CompressSuffix is the filename suffix for gzip-compressed rotated logs.
 	CompressSuffix = ".gz"
-	// DefaultMaxSize is the maximum log file size in megabytes when fileSize is unset or non-positive.
+	// DefaultMaxSize is the default maximum log file size in megabytes when fileSize is unset or non-positive.
 	DefaultMaxSize = 100
 )
 
 var (
-	// MegaByte converts megabyte counts to bytes for size limits.
+	// MegaByte is the number of bytes in one mebibyte, used to convert megabyte settings to bytes.
 	MegaByte = 1024 * 1024
 )
 
-// Compile-time assertion that RotateWriter implements io.WriteCloser.
+// Compile-time check that RotateWriter implements io.WriteCloser.
 var _ io.WriteCloser = (*RotateWriter)(nil)
 
-// chown is reserved for copying ownership to new files; non-Linux builds always return nil.
+// chown is a hook for preserving file ownership on some platforms; default builds return nil.
 func chown(_ string, _ os.FileInfo) error {
 	return nil
 }
 
-// getRotateTime normalizes a timestamp to a rotation boundary: local midnight when rotateDuration
-// is a multiple of 24 hours, otherwise rotateTime truncated to rotateDuration.
+// getRotateTime aligns t to a rotation boundary: local midnight when rotateDuration divides 24h,
+// otherwise t truncated to rotateDuration.
 func getRotateTime(rotateTime time.Time, rotateDuration time.Duration) time.Time {
 	if rotateDuration%(24*time.Hour) == 0 {
 		currentRotateTime := time.Date(rotateTime.Year(), rotateTime.Month(), rotateTime.Day(), 0, 0, 0, 0, time.Local)
@@ -59,25 +51,25 @@ func getRotateTime(rotateTime time.Time, rotateDuration time.Duration) time.Time
 	return rotateTime.Truncate(rotateDuration)
 }
 
-// RotateWriter is an io.WriteCloser that writes to a primary log path and rolls the file by time
-// and/or by size. Retention and compression are applied asynchronously after rotation.
+// RotateWriter implements io.WriteCloser for a primary log file with optional time- and size-based
+// rotation, asynchronous retention, and optional gzip of backups.
 type RotateWriter struct {
-	// filePath is the active log file path; if empty it is derived from tcfg AppName.
+	// filePath is the active log path; empty means derive from tcfg AppName.
 	filePath string
 
-	// fileSize is the soft maximum log file size in megabytes before size-based rotation.
+	// fileSize is the soft size limit in megabytes before size-based rotation.
 	fileSize int
 
 	// fileRotate is the interval between time-based rotations.
 	fileRotate time.Duration
 
-	// fileExpired removes rotated backups older than this many days when positive.
+	// fileExpired deletes backups older than this many days when positive.
 	fileExpired int
 
-	// fileCount caps the number of rotated backups retained when positive.
+	// fileCount limits how many rotated backups to keep when positive.
 	fileCount int
 
-	// isCompress enables background gzip of rotated files when true.
+	// isCompress enables background gzip compression of rotated files.
 	isCompress bool
 
 	file *os.File
@@ -91,8 +83,7 @@ type RotateWriter struct {
 	sync.Mutex
 }
 
-// newRotateWriter returns a configured writer. fileRotate is expressed in hours and starts a
-// background runMill goroutine for retention and compression.
+// newRotateWriter constructs a RotateWriter. fileRotate is in hours; it starts runMill for retention.
 func newRotateWriter(filePath string, fileSize int, fileRotate, fileExpired, fileCount int, isCompress bool) *RotateWriter {
 	rotateWriter := &RotateWriter{
 		filePath: filePath,
@@ -116,10 +107,10 @@ func newRotateWriter(filePath string, fileSize int, fileRotate, fileExpired, fil
 	return rotateWriter
 }
 
-// Write implements io.Writer. It opens the log file on first use. It performs at most one
-// time-based rotation when the interval has elapsed, then at most one size-based rotation when
-// appending would exceed getMaxSize, and finally issues a single os.File.Write for the entire buffer.
-// A single Write larger than getMaxSize may therefore produce one file larger than the configured cap.
+// Write implements io.Writer. It opens the file on first use, applies at most one time-based
+// rotation when due, then at most one size-based rotation when the write would exceed getMaxSize,
+// and writes the full buffer in one system call. A buffer larger than getMaxSize may leave one
+// file larger than the configured limit.
 func (p *RotateWriter) Write(data []byte) (int, error) {
 	p.Lock()
 	defer p.Unlock()
@@ -161,7 +152,7 @@ func (p *RotateWriter) Write(data []byte) (int, error) {
 	return n, nil
 }
 
-// Close implements io.Closer by closing the active log file handle when present.
+// Close implements io.Closer by closing the active log file if open.
 func (p *RotateWriter) Close() error {
 	p.Lock()
 	defer p.Unlock()
@@ -169,7 +160,7 @@ func (p *RotateWriter) Close() error {
 	return p.close()
 }
 
-// close releases the active file descriptor when p.file is non-nil.
+// close closes p.file and clears the field when non-nil.
 func (p *RotateWriter) close() error {
 	if p.file == nil {
 		return nil
@@ -181,7 +172,7 @@ func (p *RotateWriter) close() error {
 	return err
 }
 
-// rotate closes the current file, renames it to a timestamped backup, opens a new primary file, and notifies runMill.
+// rotate closes the active file, renames it to a timestamped backup, creates a new primary file, and signals runMill.
 func (p *RotateWriter) rotate() error {
 	err := p.close()
 	if err != nil {
@@ -201,8 +192,8 @@ func (p *RotateWriter) rotate() error {
 	return nil
 }
 
-// newLogFile creates or truncates the primary log path after renaming any existing file to a backup.
-// The caller must have closed the previous handle.
+// newLogFile renames an existing primary file to a backup when present, then creates or truncates
+// the primary path. The previous file handle must already be closed.
 func (p *RotateWriter) newLogFile() error {
 	err := os.MkdirAll(p.getFileDir(), 0744)
 	if err != nil {
@@ -244,7 +235,7 @@ func (p *RotateWriter) newLogFile() error {
 	return nil
 }
 
-// getFilePath returns the configured path, defaulting to "<AppName>.log" from tcfg when unset.
+// getFilePath returns filePath, or resolves and caches "<AppName>.log" from tcfg when empty.
 func (p *RotateWriter) getFilePath() string {
 	if p.filePath != "" {
 		return p.filePath
@@ -257,7 +248,7 @@ func (p *RotateWriter) getFilePath() string {
 	return p.filePath
 }
 
-// getRotateFilePath returns the backup filename for the current rotateTime and cursor: prefix.time.cursor.ext.
+// getRotateFilePath builds the backup path as prefix.timeStr.cursor.ext under the log directory.
 func (p *RotateWriter) getRotateFilePath() string {
 	filePath := p.filePath
 
@@ -275,7 +266,7 @@ func (p *RotateWriter) getRotateFilePath() string {
 	return filepath.Join(dir, destFilename)
 }
 
-// openLogFile opens or creates the primary log, sets p.size from the file, and initializes rotation state.
+// openLogFile opens the primary log for append when it exists, or creates it, then sets size and rotation state.
 func (p *RotateWriter) openLogFile() error {
 	// init file path
 	filePath := p.getFilePath()
@@ -319,7 +310,7 @@ func (p *RotateWriter) openLogFile() error {
 	return nil
 }
 
-// runMill processes retention and gzip compression after each rotation signal on millChan.
+// runMill runs in a background goroutine to prune and optionally compress rotated logs after rotation.
 func (p *RotateWriter) runMill() {
 	for range p.millChan {
 		if p.fileCount == 0 && p.fileExpired == 0 && p.isCompress == false {
@@ -398,7 +389,7 @@ func (p *RotateWriter) runMill() {
 	}
 }
 
-// getHistoryLogFiles lists recognizable rotated backups beside the active log file, newest modification time first.
+// getHistoryLogFiles returns rotated backup entries in the log directory, newest first by modification time.
 func (p *RotateWriter) getHistoryLogFiles() ([]*logFile, error) {
 	dirEntries, err := os.ReadDir(p.getFileDir())
 	if err != nil {
@@ -448,7 +439,7 @@ func (p *RotateWriter) getHistoryLogFiles() ([]*logFile, error) {
 	return historyLogFiles, nil
 }
 
-// parseTimeByFilename extracts a BackupTimeFormat timestamp from filename for the given prefix and suffix, or returns nil.
+// parseTimeByFilename parses a BackupTimeFormat timestamp from filename given prefix and suffix, or returns nil.
 func parseTimeByFilename(filename, prefix, ext string) *time.Time {
 	if strings.HasPrefix(filename, prefix) == false {
 		return nil
@@ -473,7 +464,7 @@ func parseTimeByFilename(filename, prefix, ext string) *time.Time {
 	return &updateTime
 }
 
-// getMaxSize returns the size threshold in bytes that triggers size-based rotation.
+// getMaxSize returns the configured maximum active file size in bytes before size-based rotation.
 func (p *RotateWriter) getMaxSize() int64 {
 	if p.fileSize <= 0 {
 		return int64(DefaultMaxSize * MegaByte)
@@ -482,12 +473,12 @@ func (p *RotateWriter) getMaxSize() int64 {
 	return int64(p.fileSize) * int64(MegaByte)
 }
 
-// getFileDir returns the directory containing the primary log path.
+// getFileDir returns the directory name of the primary log path.
 func (p *RotateWriter) getFileDir() string {
 	return filepath.Dir(p.filePath)
 }
 
-// getPrefixExt returns the basename prefix with a trailing dot and the extension for backup name matching.
+// getPrefixExt returns the basename prefix (with trailing dot) and extension for matching backups.
 func (p *RotateWriter) getPrefixExt() (prefix, ext string) {
 	filename := filepath.Base(p.filePath)
 
@@ -496,7 +487,7 @@ func (p *RotateWriter) getPrefixExt() (prefix, ext string) {
 	return prefix, ext
 }
 
-// compressLogFile gzip-compresses src to dst and removes src on success.
+// compressLogFile writes the gzip of src to dst and removes src when complete.
 func compressLogFile(src, dst string) (err error) {
 	file, err := os.Open(src)
 	if err != nil {
@@ -558,8 +549,8 @@ func compressLogFile(src, dst string) (err error) {
 	return nil
 }
 
-// getLogFileCursor returns the next backup sequence number for the current time window by reading
-// one directory level next to the active log file.
+// getLogFileCursor returns the next backup sequence index for the current rotation window by scanning
+// the log directory (non-recursive).
 func getLogFileCursor(filePath string, rotateDuration time.Duration) int32 {
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
@@ -620,17 +611,17 @@ func getLogFileCursor(filePath string, rotateDuration time.Duration) int32 {
 	return int32(maxCursor) + 1
 }
 
-// logFile pairs a directory entry with the modification time used for sorting.
+// logFile associates filesystem metadata with a modification time used for retention ordering.
 type logFile struct {
 	modifyTime time.Time
 
 	os.FileInfo
 }
 
-// logFiles is a slice sortable by modifyTime for retention ordering.
+// logFiles is a sortable slice of logFile by modifyTime.
 type logFiles []*logFile
 
-// Less implements sort.Interface so newer modifyTime values sort earlier.
+// Less implements sort.Interface (newer modifyTime sorts before older).
 func (f logFiles) Less(i, j int) bool {
 	return f[i].modifyTime.After(f[j].modifyTime)
 }

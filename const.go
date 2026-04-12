@@ -1,44 +1,36 @@
-/**
- * @Author: lidonglin
- * @Description: tcfg key names and log-level string constants
- * @File:  const.go
- * @Version: 1.0.0
- * @Date: 2022/10/12 17:47
- */
-
 package tlog
 
-// Keys for tcfg lookups (use with tcfg.LocalKey). Values configure the package-level logger at init.
+// Configuration keys for tcfg (use with tcfg.LocalKey). Values are read during package initialization.
 const (
-	// AppName is the tcfg key for the application display name (zerolog field app_name and default log basename).
+	// AppName is the configuration key for the application name (zerolog field app_name and default log basename).
 	AppName = "APP_NAME"
 
-	// LogLevel is the tcfg key for the minimum enabled log level (see LogLevel* constants).
+	// LogLevel is the configuration key for the minimum enabled log level (see LogLevelDebug and siblings).
 	LogLevel = "LOG_LEVEL"
 
-	// LogFileEnable is the tcfg key; when true, output is also written to a rotating file.
+	// LogFileEnable is the configuration key that enables writing to a rotating log file in addition to stdout.
 	LogFileEnable = "LOG_FILE_ENABLE"
 
-	// LogFilePath is the tcfg key for the active log file path.
+	// LogFilePath is the configuration key for the primary log file path.
 	LogFilePath = "LOG_FILE_PATH"
-	// LogFileSize is the tcfg key for the maximum log file size in megabytes before size-based rotation.
+	// LogFileSize is the configuration key for the maximum log file size in megabytes before size-based rotation.
 	LogFileSize = "LOG_FILE_SIZE"
 
-	// LogFileRotate is the tcfg key for the time-based rotation interval, in hours.
+	// LogFileRotate is the configuration key for the time-based rotation interval, in hours.
 	LogFileRotate = "LOG_FILE_ROTATE"
-	// LogFileExpired is the tcfg key for deleting rotated files older than this many days (0 disables).
+	// LogFileExpired is the configuration key for deleting rotated files older than this many days; zero disables.
 	LogFileExpired = "LOG_FILE_EXPIRED"
-	// LogFileCount is the tcfg key for the maximum number of rotated files to retain (0 disables).
+	// LogFileCount is the configuration key for the maximum number of rotated files to retain; zero disables.
 	LogFileCount = "LOG_FILE_COUNT"
 
-	// LogFileCompress is the tcfg key; when true, rotated files are gzip-compressed in the background.
+	// LogFileCompress is the configuration key that enables asynchronous gzip compression of rotated files.
 	LogFileCompress = "LOG_FILE_COMPRESS"
 
-	// SentryDsn is the tcfg key for the Sentry project DSN; empty disables Sentry integration.
+	// SentryDsn is the configuration key for the Sentry project DSN; empty disables Sentry.
 	SentryDsn = "SENTRY_DSN"
 )
 
-// Log level strings accepted by tcfg and mapped in setGlobalLevel.
+// Log level name strings accepted by configuration and by setGlobalLevel.
 const (
 	LogLevelDebug = "DEBUG"
 	LogLevelInfo  = "INFO"
