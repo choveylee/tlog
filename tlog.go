@@ -1,3 +1,19 @@
+/**
+ * @Author: lidonglin
+ * @Description: Package entry: zerolog-based logger, tcfg, optional rotation, Sentry, ttrace
+ * @File:  tlog.go
+ * @Version: 1.0.0
+ * @Date: 2022/10/12 17:47
+ */
+
+// Package tlog provides structured logging built on zerolog. At process startup it loads
+// settings from tcfg: minimum log level, optional file output with rotation, and an optional
+// Sentry DSN. When a context carries a valid trace ID from package ttrace, it is emitted as
+// field trace_id.
+//
+// The package exposes one configured [Tlog] as the default logger. Use [D], [I], [W], [E], [F],
+// or [P] to start an event, then chain [Tevent.Detail], [Tevent.Detailf], and optionally
+// [Tevent.Err], and finish with [Tevent.Msg] or [Tevent.Msgf].
 package tlog
 
 import (
@@ -18,37 +34,39 @@ import (
 var defaultLog *Tlog
 
 const (
+	// CtxTraceId is the JSON field name for the trace identifier when present in ctx.
 	CtxTraceId string = "trace_id"
+
+	// maxDetailLen caps the length of the joined detail string before it is written as field "detail".
+	maxDetailLen = 10000
 )
 
+// Tlog holds the configured zerolog.Logger for the default logger created during package init.
 type Tlog struct {
 	logger zerolog.Logger
 }
 
+// Tevent is a builder for one log line. Chain Detail or Detailf, optionally Err, then Msg or Msgf.
 type Tevent struct {
 	event *zerolog.Event
 
-	// store user defined values
+	// details holds fragments appended by Detail and Detailf, joined into field "detail" on Msg or Msgf.
 	details []string
 }
 
 func init() {
-	// init zero log
 	zerolog.TimeFieldFormat = time.RFC3339
 
 	logLevel := tcfg.DefaultString(tcfg.LocalKey(LogLevel), "INFO")
 	setGlobalLevel(logLevel)
 
-	// init sentry
 	sentryDsn := tcfg.DefaultString(tcfg.LocalKey(SentryDsn), "")
 	if sentryDsn != "" {
-		err := initSentry(sentryDsn)
-		if err != nil {
-			panic(err)
+		if err := initSentry(sentryDsn); err != nil {
+			fmt.Fprintf(os.Stderr, "tlog: Sentry disabled after 4 failed init attempts (dsn=%q): %v\n", sentryDsn, err)
 		}
 	}
 
-	// init log file & tlog
 	appName := tcfg.DefaultString(AppName, "")
 	if appName == "" {
 		_, fileName := filepath.Split(os.Args[0])
@@ -60,7 +78,7 @@ func init() {
 	var writer zerolog.LevelWriter
 
 	logFileEnable := tcfg.DefaultBool(tcfg.LocalKey(LogFileEnable), false)
-	if logFileEnable == true {
+	if logFileEnable {
 		filePath := tcfg.DefaultString(tcfg.LocalKey(LogFilePath), fmt.Sprintf("%s.log", appName))
 
 		fileSize := tcfg.DefaultInt(tcfg.LocalKey(LogFileSize), 500)
@@ -84,7 +102,7 @@ func init() {
 	}
 }
 
-// setGlobalLevel set global level
+// setGlobalLevel maps a case-insensitive level name to zerolog.SetGlobalLevel; unknown names default to info.
 func setGlobalLevel(level string) {
 	switch strings.ToUpper(level) {
 	case "DEBUG":
@@ -104,6 +122,7 @@ func setGlobalLevel(level string) {
 	}
 }
 
+// newTevent returns a Tevent for the named level. ERROR, FATAL, and PANIC events include a caller field.
 func newTevent(level string, tlog *Tlog) *Tevent {
 	switch strings.ToUpper(level) {
 	case "DEBUG":
@@ -137,49 +156,49 @@ func newTevent(level string, tlog *Tlog) *Tevent {
 	}
 }
 
-// D use debug level log
+// D starts a debug-level event on the default logger and adds trace_id from ctx when available.
 func D(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("DEBUG", defaultLog), ctx)
 }
 
-// I use info level log
+// I starts an info-level event on the default logger and adds trace_id from ctx when available.
 func I(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("INFO", defaultLog), ctx)
 }
 
-// W use warn level log
+// W starts a warn-level event on the default logger and adds trace_id from ctx when available.
 func W(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("WARN", defaultLog), ctx)
 }
 
-// E use error level log
+// E starts an error-level event on the default logger, adds caller metadata, and trace_id from ctx when available.
 func E(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("ERROR", defaultLog), ctx)
 }
 
-// F use fatal level log
+// F starts a fatal-level event on the default logger, adds caller metadata, and trace_id from ctx when available.
 func F(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("FATAL", defaultLog), ctx)
 }
 
-// P use panic level log
+// P starts a panic-level event on the default logger, adds caller metadata, and trace_id from ctx when available.
 func P(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("PANIC", defaultLog), ctx)
 }
 
-// Detail attach extension log
+// Detail appends value to the detail buffer. Msg and Msgf join fragments into field "detail".
 func (p *Tevent) Detail(value string) *Tevent {
 	p.details = append(p.details, value)
 	return p
 }
 
-// Detailf attach format extension log
-func (p *Tevent) Detailf(format string, a ...interface{}) *Tevent {
+// Detailf appends fmt.Sprintf(format, a...) to the detail buffer.
+func (p *Tevent) Detailf(format string, a ...any) *Tevent {
 	p.details = append(p.details, fmt.Sprintf(format, a...))
 	return p
 }
 
-// Err attach error msg
+// Err sets field "error" to err.Error() when err is not nil.
 func (p *Tevent) Err(err error) *Tevent {
 	if err != nil {
 		p.event = p.event.Str("error", err.Error())
@@ -188,7 +207,7 @@ func (p *Tevent) Err(err error) *Tevent {
 	return p
 }
 
-// Msg output msg
+// Msg emits the log line with the current fields and returns content unchanged.
 func (p *Tevent) Msg(content string) string {
 	if len(p.details) > 0 {
 		value := sizeCheck(strings.Join(p.details, ";"))
@@ -199,8 +218,8 @@ func (p *Tevent) Msg(content string) string {
 	return content
 }
 
-// Msgf output format msg
-func (p *Tevent) Msgf(format string, a ...interface{}) string {
+// Msgf emits fmt.Sprintf(format, a...) as the message and returns that string.
+func (p *Tevent) Msgf(format string, a ...any) string {
 	if len(p.details) > 0 {
 		value := sizeCheck(strings.Join(p.details, ";"))
 		p.event = p.event.Str("detail", value)
@@ -212,31 +231,33 @@ func (p *Tevent) Msgf(format string, a ...interface{}) string {
 	return content
 }
 
-// injectTraceId inject trace id into revent
+// injectTraceId sets field CtxTraceId when ctx contains a valid trace ID from ttrace.
 func injectTraceId(revent *Tevent, ctx context.Context) *Tevent {
-	traceId := ttrace.GetTraceID(ctx)
-	if ttrace.ValidTraceID(traceId) {
+	traceId := ttrace.GetTraceId(ctx)
+	if ttrace.ValidTraceId(traceId) {
 		revent.event = revent.event.Str(CtxTraceId, traceId.String())
 	}
 
 	return revent
 }
 
+// sizeCheck returns value truncated to maxDetailLen bytes with an ellipsis suffix if longer.
 func sizeCheck(value string) string {
-	if len(value) > 10000 {
-		return value[:1000] + "..."
-	} else {
+	if len(value) <= maxDetailLen {
 		return value
 	}
+	return value[:maxDetailLen] + "..."
 }
 
-// 获取调用行
+// addCaller sets field "caller" to file:line for the first stack frame outside github.com/choveylee packages.
 func addCaller(revent *Tevent) *Tevent {
 	_, file, line := funcFileLine("github.com/choveylee")
 	revent.event = revent.event.Str("caller", fmt.Sprintf("%s:%d", file, line))
 	return revent
 }
 
+// funcFileLine walks the stack, skips frames whose full function name contains excludePKG, and returns
+// the short function name, file path, and line of the first frame that does not match.
 func funcFileLine(excludePKG string) (string, string, int) {
 	const depth = 8
 	var pcs [depth]uintptr
