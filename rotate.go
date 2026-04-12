@@ -12,6 +12,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -327,7 +328,7 @@ func (p *RotateWriter) runMill() {
 
 		historyLogFiles, err := p.getHistoryLogFiles()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "tlog rotate: list history log files in %s: %v\n", p.getFileDir(), err)
+			log.Printf("tlog rotate: list history log files in %s: %v", p.getFileDir(), err)
 			continue
 		}
 
@@ -376,7 +377,7 @@ func (p *RotateWriter) runMill() {
 		for _, removeLogFile := range removeLogFiles {
 			path := filepath.Join(p.getFileDir(), removeLogFile.Name())
 			if err := os.Remove(path); err != nil {
-				fmt.Fprintf(os.Stderr, "tlog rotate: remove old log %s: %v\n", path, err)
+				log.Printf("tlog rotate: remove old log %s: %v", path, err)
 			}
 		}
 
@@ -390,7 +391,7 @@ func (p *RotateWriter) runMill() {
 
 				dst := path + CompressSuffix
 				if err := compressLogFile(path, dst); err != nil {
-					fmt.Fprintf(os.Stderr, "tlog rotate: compress %s -> %s: %v\n", path, dst, err)
+					log.Printf("tlog rotate: compress %s -> %s: %v", path, dst, err)
 				}
 			}
 		}

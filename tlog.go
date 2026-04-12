@@ -19,6 +19,7 @@ package tlog
 import (
 	"context"
 	"fmt"
+	stdlog "log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -63,7 +64,7 @@ func init() {
 	sentryDsn := tcfg.DefaultString(tcfg.LocalKey(SentryDsn), "")
 	if sentryDsn != "" {
 		if err := initSentry(sentryDsn); err != nil {
-			fmt.Fprintf(os.Stderr, "tlog: Sentry disabled after 4 failed init attempts (dsn=%q): %v\n", sentryDsn, err)
+			stdlog.Printf("tlog: Sentry disabled after 4 failed init attempts (dsn=%q): %v", sentryDsn, err)
 		}
 	}
 
