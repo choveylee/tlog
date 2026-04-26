@@ -3,6 +3,7 @@ package tlog
 import (
 	"context"
 	"fmt"
+	"io"
 	stdlog "log"
 	"os"
 	"path/filepath"
@@ -17,6 +18,14 @@ import (
 )
 
 var defaultLog *Tlog
+
+var (
+	initSentryFunc = initSentry
+
+	sentryInitLogf = func(format string, args ...any) {
+		stdlog.Printf(format, args...)
+	}
+)
 
 const (
 	// CtxTraceId is the field key used for the distributed trace identifier in structured output.
@@ -35,6 +44,7 @@ type Tlog struct {
 // and optionally [Tevent.Err], then [Tevent.Msg] or [Tevent.Msgf] to emit.
 type Tevent struct {
 	event *zerolog.Event
+	level zerolog.Level
 
 	// details stores fragments from Detail and Detailf, joined into field "detail" on emit.
 	details []string
@@ -48,9 +58,7 @@ func init() {
 
 	sentryDsn := tcfg.DefaultString(tcfg.LocalKey(SentryDsn), "")
 	if sentryDsn != "" {
-		if err := initSentry(sentryDsn); err != nil {
-			stdlog.Printf("tlog: Sentry disabled after 4 failed init attempts (dsn=%q): %v", sentryDsn, err)
-		}
+		startSentryInit(sentryDsn)
 	}
 
 	appName := tcfg.DefaultString(AppName, "")
@@ -78,7 +86,7 @@ func init() {
 
 		rotateWriter := newRotateWriter(filePath, fileSize, fileRotate, fileExpired, fileCount, fileCompress)
 
-		writer = zerolog.MultiLevelWriter(os.Stdout, &SentryWriter{}, rotateWriter)
+		writer = zerolog.MultiLevelWriter(os.Stdout, &SentryWriter{}, noCloseWriter{Writer: rotateWriter})
 	} else {
 		writer = zerolog.MultiLevelWriter(os.Stdout, &SentryWriter{})
 	}
@@ -86,6 +94,23 @@ func init() {
 	defaultLog = &Tlog{
 		logger: log.Logger.With().Str("app_name", appName).Logger().Output(writer),
 	}
+}
+
+func startSentryInit(sentryDsn string) {
+	beginSentryInit()
+
+	go func() {
+		err := initSentryFunc(sentryDsn)
+		finishSentryInit(err)
+
+		if err != nil {
+			sentryInitLogf(
+				"tlog: Sentry initialization failed after %d attempts; event reporting is disabled: %v",
+				sentryInitAttempts,
+				err,
+			)
+		}
+	}()
 }
 
 // setGlobalLevel applies the global zerolog level from a case-insensitive name. Unrecognized
@@ -116,30 +141,37 @@ func newTevent(level string, tl *Tlog) *Tevent {
 	case "DEBUG":
 		return &Tevent{
 			event: tl.logger.Debug(),
+			level: zerolog.DebugLevel,
 		}
 	case "INFO":
 		return &Tevent{
 			event: tl.logger.Info(),
+			level: zerolog.InfoLevel,
 		}
 	case "WARN":
 		return &Tevent{
 			event: tl.logger.Warn(),
+			level: zerolog.WarnLevel,
 		}
 	case "ERROR":
 		return addCaller(&Tevent{
 			event: tl.logger.Error(),
+			level: zerolog.ErrorLevel,
 		})
 	case "FATAL":
 		return addCaller(&Tevent{
 			event: tl.logger.Fatal(),
+			level: zerolog.FatalLevel,
 		})
 	case "PANIC":
 		return addCaller(&Tevent{
 			event: tl.logger.Panic(),
+			level: zerolog.PanicLevel,
 		})
 	default:
 		return &Tevent{
 			event: tl.logger.Info(),
+			level: zerolog.InfoLevel,
 		}
 	}
 }
@@ -174,53 +206,80 @@ func P(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("PANIC", defaultLog), ctx)
 }
 
-// Detail appends value to the detail buffer for the next Msg or Msgf call.
+// Detail appends value to the detail buffer for the next call to [Tevent.Msg] or [Tevent.Msgf].
 func (p *Tevent) Detail(value string) *Tevent {
+	if !p.enabled() {
+		return p
+	}
+
 	p.details = append(p.details, value)
 	return p
 }
 
 // Detailf appends formatted text to the detail buffer using fmt.Sprintf.
 func (p *Tevent) Detailf(format string, a ...any) *Tevent {
+	if !p.enabled() {
+		return p
+	}
+
 	p.details = append(p.details, fmt.Sprintf(format, a...))
 	return p
 }
 
 // Err records err as field "error" when err is non-nil.
 func (p *Tevent) Err(err error) *Tevent {
-	if err != nil {
+	if err != nil && p.enabled() {
 		p.event = p.event.Str("error", err.Error())
 	}
 
 	return p
 }
 
-// Msg writes the event with message content and returns content.
+// Msg writes the event with the provided message and returns the same string.
 func (p *Tevent) Msg(content string) string {
-	if len(p.details) > 0 {
-		value := sizeCheck(strings.Join(p.details, ";"))
-		p.event = p.event.Str("detail", value)
+	if !p.enabled() {
+		return content
 	}
+
+	p.attachDetail()
+
+	if p.level == zerolog.PanicLevel {
+		defer flushSentry()
+	}
+
 	p.event.Msg(content)
 
 	return content
 }
 
-// Msgf writes the event with a formatted message and returns the formatted string.
+// Msgf formats and writes the event message, then returns the formatted string.
 func (p *Tevent) Msgf(format string, a ...any) string {
-	if len(p.details) > 0 {
-		value := sizeCheck(strings.Join(p.details, ";"))
-		p.event = p.event.Str("detail", value)
+	var content string
+
+	if !p.enabled() {
+		return fmt.Sprintf(format, a...)
 	}
 
-	content := fmt.Sprintf(format, a...)
-	p.event.Msg(content)
+	p.attachDetail()
+
+	if p.level == zerolog.PanicLevel {
+		defer flushSentry()
+	}
+
+	p.event.MsgFunc(func() string {
+		content = fmt.Sprintf(format, a...)
+		return content
+	})
 
 	return content
 }
 
 // injectTraceId adds CtxTraceId to the event when ctx holds a valid trace ID.
 func injectTraceId(revent *Tevent, ctx context.Context) *Tevent {
+	if !revent.enabled() {
+		return revent
+	}
+
 	traceId := ttrace.GetTraceId(ctx)
 	if ttrace.ValidTraceId(traceId) {
 		revent.event = revent.event.Str(CtxTraceId, traceId.String())
@@ -238,10 +297,34 @@ func sizeCheck(value string) string {
 }
 
 // addCaller sets field "caller" to file:line for the first frame outside module path github.com/choveylee.
-func addCaller(revent *Tevent) *Tevent {
+func addCaller(tevent *Tevent) *Tevent {
+	if !tevent.enabled() {
+		return tevent
+	}
+
 	_, file, line := funcFileLine("github.com/choveylee")
-	revent.event = revent.event.Str("caller", fmt.Sprintf("%s:%d", file, line))
-	return revent
+
+	tevent.event = tevent.event.Str("caller", fmt.Sprintf("%s:%d", file, line))
+
+	return tevent
+}
+
+func (p *Tevent) attachDetail() {
+	if len(p.details) == 0 {
+		return
+	}
+
+	value := sizeCheck(strings.Join(p.details, ";"))
+
+	p.event = p.event.Str("detail", value)
+}
+
+func (p *Tevent) enabled() bool {
+	return p != nil && p.event.Enabled()
+}
+
+type noCloseWriter struct {
+	io.Writer
 }
 
 // funcFileLine inspects the call stack, skips frames whose function name contains excludePKG,

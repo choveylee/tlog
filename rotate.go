@@ -24,6 +24,8 @@ const (
 	CompressSuffix = ".gz"
 	// DefaultMaxSize is the default maximum log file size in megabytes when fileSize is unset or non-positive.
 	DefaultMaxSize = 100
+	// DefaultRotateHours is the fallback time-rotation interval, in hours, when configuration is unset or invalid.
+	DefaultRotateHours = 1
 )
 
 var (
@@ -42,6 +44,10 @@ func chown(_ string, _ os.FileInfo) error {
 // getRotateTime aligns t to a rotation boundary: local midnight when rotateDuration divides 24h,
 // otherwise t truncated to rotateDuration.
 func getRotateTime(rotateTime time.Time, rotateDuration time.Duration) time.Time {
+	if rotateDuration <= 0 {
+		return rotateTime
+	}
+
 	if rotateDuration%(24*time.Hour) == 0 {
 		currentRotateTime := time.Date(rotateTime.Year(), rotateTime.Month(), rotateTime.Day(), 0, 0, 0, 0, time.Local)
 
@@ -80,11 +86,20 @@ type RotateWriter struct {
 
 	millChan chan bool
 
+	done     chan struct{}
+	millDone chan struct{}
+
+	closed bool
+
 	sync.Mutex
 }
 
 // newRotateWriter constructs a RotateWriter. fileRotate is in hours; it starts runMill for retention.
 func newRotateWriter(filePath string, fileSize int, fileRotate, fileExpired, fileCount int, isCompress bool) *RotateWriter {
+	if fileRotate <= 0 {
+		fileRotate = DefaultRotateHours
+	}
+
 	rotateWriter := &RotateWriter{
 		filePath: filePath,
 
@@ -98,6 +113,9 @@ func newRotateWriter(filePath string, fileSize int, fileRotate, fileExpired, fil
 		isCompress: isCompress,
 
 		millChan: make(chan bool, 1),
+
+		done:     make(chan struct{}),
+		millDone: make(chan struct{}),
 	}
 
 	rotateWriter.cursor.Store(-1)
@@ -114,6 +132,10 @@ func newRotateWriter(filePath string, fileSize int, fileRotate, fileExpired, fil
 func (p *RotateWriter) Write(data []byte) (int, error) {
 	p.Lock()
 	defer p.Unlock()
+
+	if p.closed {
+		return 0, os.ErrClosed
+	}
 
 	if p.file == nil {
 		if err := p.openLogFile(); err != nil {
@@ -157,6 +179,13 @@ func (p *RotateWriter) Close() error {
 	p.Lock()
 	defer p.Unlock()
 
+	if p.closed {
+		return nil
+	}
+
+	p.closed = true
+	close(p.done)
+
 	return p.close()
 }
 
@@ -185,6 +214,7 @@ func (p *RotateWriter) rotate() error {
 	}
 
 	select {
+	case <-p.done:
 	case p.millChan <- true:
 	default:
 	}
@@ -312,14 +342,22 @@ func (p *RotateWriter) openLogFile() error {
 
 // runMill runs in a background goroutine to prune and optionally compress rotated logs after rotation.
 func (p *RotateWriter) runMill() {
-	for range p.millChan {
+	defer close(p.millDone)
+
+	for {
+		select {
+		case <-p.done:
+			return
+		case <-p.millChan:
+		}
+
 		if p.fileCount == 0 && p.fileExpired == 0 && p.isCompress == false {
 			continue
 		}
 
 		historyLogFiles, err := p.getHistoryLogFiles()
 		if err != nil {
-			log.Printf("tlog rotate: list history log files in %s: %v", p.getFileDir(), err)
+			log.Printf("tlog rotate: failed to enumerate rotated log files in %q: %v", p.getFileDir(), err)
 			continue
 		}
 
@@ -368,7 +406,7 @@ func (p *RotateWriter) runMill() {
 		for _, removeLogFile := range removeLogFiles {
 			path := filepath.Join(p.getFileDir(), removeLogFile.Name())
 			if err := os.Remove(path); err != nil {
-				log.Printf("tlog rotate: remove old log %s: %v", path, err)
+				log.Printf("tlog rotate: failed to remove rotated log file %q: %v", path, err)
 			}
 		}
 
@@ -382,14 +420,19 @@ func (p *RotateWriter) runMill() {
 
 				dst := path + CompressSuffix
 				if err := compressLogFile(path, dst); err != nil {
-					log.Printf("tlog rotate: compress %s -> %s: %v", path, dst, err)
+					log.Printf(
+						"tlog rotate: failed to compress rotated log file from %q to %q: %v",
+						path,
+						dst,
+						err,
+					)
 				}
 			}
 		}
 	}
 }
 
-// getHistoryLogFiles returns rotated backup entries in the log directory, newest first by modification time.
+// getHistoryLogFiles returns rotated backup entries in the log directory, newest first by backup timestamp.
 func (p *RotateWriter) getHistoryLogFiles() ([]*logFile, error) {
 	dirEntries, err := os.ReadDir(p.getFileDir())
 	if err != nil {
@@ -417,7 +460,7 @@ func (p *RotateWriter) getHistoryLogFiles() ([]*logFile, error) {
 
 		modifyTime := parseTimeByFilename(dirEntry.Name(), prefix, ext)
 		if modifyTime != nil {
-			historyLogFile := &logFile{fileInfo.ModTime(), fileInfo}
+			historyLogFile := &logFile{*modifyTime, fileInfo}
 
 			historyLogFiles = append(historyLogFiles, historyLogFile)
 
@@ -426,7 +469,7 @@ func (p *RotateWriter) getHistoryLogFiles() ([]*logFile, error) {
 
 		modifyTime = parseTimeByFilename(dirEntry.Name(), prefix, ext+CompressSuffix)
 		if modifyTime != nil {
-			historyLogFile := &logFile{fileInfo.ModTime(), fileInfo}
+			historyLogFile := &logFile{*modifyTime, fileInfo}
 
 			historyLogFiles = append(historyLogFiles, historyLogFile)
 

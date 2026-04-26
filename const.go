@@ -1,36 +1,40 @@
 package tlog
 
-// Configuration keys for tcfg (use with tcfg.LocalKey). Values are read during package initialization.
+// Configuration keys consumed through tcfg. Values are read during package initialization.
 const (
-	// AppName is the configuration key for the application name (zerolog field app_name and default log basename).
+	// AppName is the configuration key for the application name. The value is written to
+	// the app_name field and used as the default log file base name.
 	AppName = "APP_NAME"
 
-	// LogLevel is the configuration key for the minimum enabled log level (see LogLevelDebug and siblings).
+	// LogLevel is the configuration key for the minimum enabled log level.
 	LogLevel = "LOG_LEVEL"
 
-	// LogFileEnable is the configuration key that enables writing to a rotating log file in addition to stdout.
+	// LogFileEnable enables output to a rotating log file in addition to standard output.
 	LogFileEnable = "LOG_FILE_ENABLE"
 
-	// LogFilePath is the configuration key for the primary log file path.
+	// LogFilePath is the configuration key for the active log file path.
 	LogFilePath = "LOG_FILE_PATH"
-	// LogFileSize is the configuration key for the maximum log file size in megabytes before size-based rotation.
+	// LogFileSize is the configuration key for the maximum active log file size,
+	// in megabytes, before size-based rotation occurs.
 	LogFileSize = "LOG_FILE_SIZE"
 
 	// LogFileRotate is the configuration key for the time-based rotation interval, in hours.
 	LogFileRotate = "LOG_FILE_ROTATE"
-	// LogFileExpired is the configuration key for deleting rotated files older than this many days; zero disables.
+	// LogFileExpired is the configuration key for deleting rotated log files older
+	// than the specified number of days. A value of zero disables age-based deletion.
 	LogFileExpired = "LOG_FILE_EXPIRED"
-	// LogFileCount is the configuration key for the maximum number of rotated files to retain; zero disables.
+	// LogFileCount is the configuration key for the maximum number of rotated log
+	// files to retain. A value of zero disables count-based deletion.
 	LogFileCount = "LOG_FILE_COUNT"
 
-	// LogFileCompress is the configuration key that enables asynchronous gzip compression of rotated files.
+	// LogFileCompress enables asynchronous gzip compression of rotated log files.
 	LogFileCompress = "LOG_FILE_COMPRESS"
 
-	// SentryDsn is the configuration key for the Sentry project DSN; empty disables Sentry.
+	// SentryDsn is the configuration key for the Sentry project DSN. An empty value disables Sentry.
 	SentryDsn = "SENTRY_DSN"
 )
 
-// Log level name strings accepted by configuration and by setGlobalLevel.
+// Log level names accepted by configuration and by setGlobalLevel.
 const (
 	LogLevelDebug = "DEBUG"
 	LogLevelInfo  = "INFO"

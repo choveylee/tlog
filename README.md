@@ -1,14 +1,15 @@
 # tlog
 
-Structured logging for Go, built on [zerolog](https://github.com/rs/zerolog). It integrates [tcfg](https://github.com/choveylee/tcfg) for configuration, optional log-file rotation, [Sentry](https://github.com/getsentry/sentry-go) for error reporting, and [ttrace](https://github.com/choveylee/ttrace) for trace identifiers in context.
+`tlog` is a structured logging package for Go applications built on top of [zerolog](https://github.com/rs/zerolog). It integrates with [tcfg](https://github.com/choveylee/tcfg) for configuration, [ttrace](https://github.com/choveylee/ttrace) for trace propagation, optional rotating file output, and optional [Sentry](https://github.com/getsentry/sentry-go) reporting for error-level events.
 
-## Features
+## Capabilities
 
-- Leveled logging (`D` / `I` / `W` / `E` / `F` / `P`) with a single package-level logger initialized at startup
-- Optional `detail` field via `Detail` / `Detailf`, and `error` via `Err`
-- Trace ID injection when the context carries a valid ID from `ttrace`
-- Optional rotating log files (size, time, retention, gzip)
-- Error-level lines may be forwarded to Sentry when a DSN is configured
+- Process-wide default logger configured during package initialization
+- Structured leveled logging through `D`, `I`, `W`, `E`, `F`, and `P`
+- Optional `detail` and `error` fields through `Detail`, `Detailf`, and `Err`
+- Automatic `trace_id` injection from `context.Context` when a valid `ttrace` identifier is present
+- Optional size-based and time-based file rotation with retention and gzip compression
+- Optional forwarding of error-level log entries to Sentry
 
 ## Installation
 
@@ -16,27 +17,47 @@ Structured logging for Go, built on [zerolog](https://github.com/rs/zerolog). It
 go get github.com/choveylee/tlog
 ```
 
-## Usage
+## Example
 
 ```go
-import (
-    "context"
+package main
 
-    "github.com/choveylee/tlog"
+import (
+	"context"
+
+	"github.com/choveylee/tlog"
 )
 
-func example(ctx context.Context) {
-    tlog.I(ctx).Msg("hello")
-    tlog.E(ctx).Err(err).Msg("operation failed")
-    tlog.I(ctx).Detailf("user=%d", id).Msgf("request %s", reqID)
+func handleRequest(ctx context.Context, requestID string, userID int, err error) {
+	tlog.I(ctx).Msg("service started")
+	tlog.I(ctx).Detailf("user_id=%d", userID).Msgf("received request %s", requestID)
+
+	if err != nil {
+		tlog.E(ctx).Err(err).Msg("request processing failed")
+	}
 }
 ```
 
-Configuration keys are defined as exported constants (for example `LogLevel`, `SentryDsn`, `LogFileEnable`) and are read through `tcfg` during package initialization.
+## Configuration
+
+`tlog` reads configuration during package initialization through `tcfg`. Exported constants such as `AppName`, `LogLevel`, `LogFileEnable`, `LogFilePath`, and `SentryDsn` define the supported keys. Use `tcfg.LocalKey` when environment-specific scoping is required.
+
+Common configuration keys include:
+
+- `AppName`
+- `LogLevel`
+- `LogFileEnable`
+- `LogFilePath`
+- `LogFileSize`
+- `LogFileRotate`
+- `LogFileExpired`
+- `LogFileCount`
+- `LogFileCompress`
+- `SentryDsn`
 
 ## Documentation
 
-The package overview and linked references live in [`doc.go`](doc.go). View rendered documentation with:
+See [`doc.go`](doc.go) for the package overview and rendered API references. To inspect the package locally, run:
 
 ```bash
 go doc -all github.com/choveylee/tlog
