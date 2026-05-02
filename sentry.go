@@ -30,8 +30,8 @@ const (
 )
 
 // initSentry attempts to initialize the Sentry client with bounded retries.
-// On success it returns nil. On failure it returns the last error; the caller must log it
-// because package initialization runs before the default logger exists.
+// On success it returns nil. On failure it returns the last error; the caller must
+// log it because package initialization runs before the default logger exists.
 func initSentry(sentryDsn string) error {
 	var err error
 
@@ -71,8 +71,8 @@ func connectSentry(sentryDsn string) error {
 	})
 }
 
-// SentryWriter implements zerolog.LevelWriter by forwarding error-level JSON lines
-// to Sentry after the Sentry client has been initialized successfully.
+// SentryWriter implements zerolog.LevelWriter by forwarding error-level JSON
+// payloads to Sentry after the client has been initialized successfully.
 type SentryWriter struct {
 	io.Writer
 }
@@ -83,8 +83,9 @@ type simpleLog struct {
 	Kind    string `json:"kind"`
 }
 
-// WriteLevel implements zerolog.LevelWriter. At or above Error it sends the payload to Sentry when
-// integration is active. It always returns (len(p), nil) so the zerolog pipeline does not fail.
+// WriteLevel implements zerolog.LevelWriter. For levels at or above Error, it
+// forwards the payload to Sentry when the integration is active. It always
+// returns (len(p), nil) so the zerolog pipeline does not fail.
 func (w SentryWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
 	if level >= zerolog.ErrorLevel {
 		captureSentryPayload(p)
@@ -93,7 +94,7 @@ func (w SentryWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err erro
 	return len(p), nil
 }
 
-// Close flushes buffered Sentry events when Sentry is ready.
+// Close flushes buffered Sentry events when the Sentry client is ready.
 func (w SentryWriter) Close() error {
 	flushSentry()
 

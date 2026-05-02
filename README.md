@@ -1,6 +1,6 @@
 # tlog
 
-`tlog` is a structured logging package for Go applications built on top of [zerolog](https://github.com/rs/zerolog). It integrates with [tcfg](https://github.com/choveylee/tcfg) for configuration, [ttrace](https://github.com/choveylee/ttrace) for trace propagation, optional rotating file output, and optional [Sentry](https://github.com/getsentry/sentry-go) reporting for error-level events.
+`tlog` provides structured logging for Go applications on top of [zerolog](https://github.com/rs/zerolog). It integrates with [tcfg](https://github.com/choveylee/tcfg) for configuration, [ttrace](https://github.com/choveylee/ttrace) for trace propagation, optional rotating file output, and optional [Sentry](https://github.com/getsentry/sentry-go) reporting for error-level events.
 
 ## Capabilities
 
@@ -29,8 +29,8 @@ import (
 )
 
 func handleRequest(ctx context.Context, requestID string, userID int, err error) {
-	tlog.I(ctx).Msg("service initialization completed")
-	tlog.I(ctx).Detailf("user_id=%d", userID).Msgf("request %s accepted for processing", requestID)
+	tlog.I(ctx).Msg("service startup completed successfully")
+	tlog.I(ctx).Detailf("user_id=%d", userID).Msgf("request %s has been accepted for processing", requestID)
 
 	if err != nil {
 		tlog.E(ctx).Err(err).Msg("request processing failed")

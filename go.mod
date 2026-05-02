@@ -3,8 +3,8 @@ module github.com/choveylee/tlog
 go 1.25.0
 
 require (
-	github.com/choveylee/tcfg v0.0.0-20260412131155-447616287f12
-	github.com/choveylee/ttrace v0.0.0-20260412131731-ea637294fd05
+	github.com/choveylee/tcfg v0.0.0-20260502053036-a4c795ccc946
+	github.com/choveylee/ttrace v0.0.0-20260502053133-734a04e17f5a
 	github.com/getsentry/sentry-go v0.45.1
 	github.com/json-iterator/go v1.1.12
 	github.com/rs/zerolog v1.35.1
@@ -13,7 +13,7 @@ require (
 require (
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/choveylee/terror v0.0.0-20260412130656-8315822d7ee8 // indirect
+	github.com/choveylee/terror v0.0.0-20260502021137-6588de2883eb // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect

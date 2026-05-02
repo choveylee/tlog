@@ -40,7 +40,7 @@ type Tlog struct {
 	logger zerolog.Logger
 }
 
-// Tevent represents a pending structured log event.
+// Tevent represents a structured log event under construction.
 // Call [Tevent.Detail], [Tevent.Detailf], and optionally [Tevent.Err], then
 // [Tevent.Msg] or [Tevent.Msgf] to emit the record.
 type Tevent struct {
@@ -106,7 +106,7 @@ func startSentryInit(sentryDsn string) {
 
 		if err != nil {
 			sentryInitLogf(
-				"tlog: Sentry initialization failed after %d attempts; event reporting is disabled: %v",
+				"tlog: failed to initialize Sentry after %d attempts; error event forwarding has been disabled: %v",
 				sentryInitAttempts,
 				err,
 			)
@@ -178,37 +178,37 @@ func newTevent(level string, tl *Tlog) *Tevent {
 }
 
 // D returns a debug-level [Tevent] for the default logger.
-// If ctx carries a valid trace identifier, the event includes [CtxTraceId].
+// If ctx carries a valid trace identifier, the resulting event includes [CtxTraceId].
 func D(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("DEBUG", defaultLog), ctx)
 }
 
 // I returns an info-level [Tevent] for the default logger.
-// If ctx carries a valid trace identifier, the event includes [CtxTraceId].
+// If ctx carries a valid trace identifier, the resulting event includes [CtxTraceId].
 func I(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("INFO", defaultLog), ctx)
 }
 
 // W returns a warn-level [Tevent] for the default logger.
-// If ctx carries a valid trace identifier, the event includes [CtxTraceId].
+// If ctx carries a valid trace identifier, the resulting event includes [CtxTraceId].
 func W(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("WARN", defaultLog), ctx)
 }
 
 // E returns an error-level [Tevent] for the default logger.
-// The event includes caller metadata and, when available, [CtxTraceId].
+// The resulting event includes caller metadata and, when available, [CtxTraceId].
 func E(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("ERROR", defaultLog), ctx)
 }
 
 // F returns a fatal-level [Tevent] for the default logger.
-// The event includes caller metadata and, when available, [CtxTraceId].
+// The resulting event includes caller metadata and, when available, [CtxTraceId].
 func F(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("FATAL", defaultLog), ctx)
 }
 
 // P returns a panic-level [Tevent] for the default logger.
-// The event includes caller metadata and, when available, [CtxTraceId].
+// The resulting event includes caller metadata and, when available, [CtxTraceId].
 func P(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("PANIC", defaultLog), ctx)
 }
@@ -223,7 +223,7 @@ func (p *Tevent) Detail(value string) *Tevent {
 	return p
 }
 
-// Detailf appends formatted text to the detail buffer using fmt.Sprintf.
+// Detailf formats text with fmt.Sprintf and appends the result to the detail buffer.
 // Formatting is skipped when the event is disabled.
 func (p *Tevent) Detailf(format string, a ...any) *Tevent {
 	if !p.enabled() {
@@ -234,7 +234,7 @@ func (p *Tevent) Detailf(format string, a ...any) *Tevent {
 	return p
 }
 
-// Err records err in the "error" field when err is non-nil.
+// Err records err under the "error" field when err is non-nil.
 func (p *Tevent) Err(err error) *Tevent {
 	if err != nil && p.enabled() {
 		p.event = p.event.Str("error", err.Error())
@@ -243,7 +243,7 @@ func (p *Tevent) Err(err error) *Tevent {
 	return p
 }
 
-// Msg writes content as the event message and returns content.
+// Msg records content as the event message and returns content unchanged.
 func (p *Tevent) Msg(content string) string {
 	if !p.enabled() {
 		return content
@@ -260,7 +260,8 @@ func (p *Tevent) Msg(content string) string {
 	return content
 }
 
-// Msgf formats the event message with fmt.Sprintf, writes it, and returns the result.
+// Msgf formats the event message with fmt.Sprintf, writes it, and returns the
+// formatted string.
 func (p *Tevent) Msgf(format string, a ...any) string {
 	var content string
 

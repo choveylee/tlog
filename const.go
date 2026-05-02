@@ -1,9 +1,9 @@
 package tlog
 
-// Configuration keys read through tcfg during package initialization.
+// Configuration keys consumed through tcfg during package initialization.
 const (
-	// AppName is the configuration key for the application name. The value is written to
-	// the app_name field and used as the default base name for log files.
+	// AppName is the configuration key for the application name. The configured value is
+	// written to the app_name field and used as the default base name for log files.
 	AppName = "APP_NAME"
 
 	// LogLevel is the configuration key for the minimum enabled log level.
@@ -21,11 +21,11 @@ const (
 
 	// LogFileRotate is the configuration key for the time-based rotation interval, in hours.
 	LogFileRotate = "LOG_FILE_ROTATE"
-	// LogFileExpired is the configuration key for deleting rotated log files older
-	// than the specified number of days. A value of zero disables age-based deletion.
+	// LogFileExpired is the configuration key for deleting rotated log files older than
+	// the specified number of days. A value of zero disables age-based deletion.
 	LogFileExpired = "LOG_FILE_EXPIRED"
-	// LogFileCount is the configuration key for the maximum number of rotated log
-	// files to retain. A value of zero disables count-based deletion.
+	// LogFileCount is the configuration key for the maximum number of rotated log files
+	// to retain. A value of zero disables count-based deletion.
 	LogFileCount = "LOG_FILE_COUNT"
 
 	// LogFileCompress is the configuration key that enables asynchronous gzip compression
