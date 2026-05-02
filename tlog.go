@@ -35,13 +35,14 @@ const (
 	maxDetailLen = 10000
 )
 
-// Tlog wraps the zerolog.Logger used as the package default after initialization.
+// Tlog wraps the zerolog.Logger used as the package default logger after initialization.
 type Tlog struct {
 	logger zerolog.Logger
 }
 
-// Tevent accumulates fields for a single log record. Call [Tevent.Detail], [Tevent.Detailf],
-// and optionally [Tevent.Err], then [Tevent.Msg] or [Tevent.Msgf] to emit.
+// Tevent represents a pending structured log event.
+// Call [Tevent.Detail], [Tevent.Detailf], and optionally [Tevent.Err], then
+// [Tevent.Msg] or [Tevent.Msgf] to emit the record.
 type Tevent struct {
 	event *zerolog.Event
 	level zerolog.Level
@@ -176,32 +177,38 @@ func newTevent(level string, tl *Tlog) *Tevent {
 	}
 }
 
-// D returns a debug-level Tevent for the default logger, enriching the context trace ID when present.
+// D returns a debug-level [Tevent] for the default logger.
+// If ctx carries a valid trace identifier, the event includes [CtxTraceId].
 func D(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("DEBUG", defaultLog), ctx)
 }
 
-// I returns an info-level Tevent for the default logger, enriching the context trace ID when present.
+// I returns an info-level [Tevent] for the default logger.
+// If ctx carries a valid trace identifier, the event includes [CtxTraceId].
 func I(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("INFO", defaultLog), ctx)
 }
 
-// W returns a warn-level Tevent for the default logger, enriching the context trace ID when present.
+// W returns a warn-level [Tevent] for the default logger.
+// If ctx carries a valid trace identifier, the event includes [CtxTraceId].
 func W(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("WARN", defaultLog), ctx)
 }
 
-// E returns an error-level Tevent with caller metadata and the context trace ID when present.
+// E returns an error-level [Tevent] for the default logger.
+// The event includes caller metadata and, when available, [CtxTraceId].
 func E(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("ERROR", defaultLog), ctx)
 }
 
-// F returns a fatal-level Tevent with caller metadata and the context trace ID when present.
+// F returns a fatal-level [Tevent] for the default logger.
+// The event includes caller metadata and, when available, [CtxTraceId].
 func F(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("FATAL", defaultLog), ctx)
 }
 
-// P returns a panic-level Tevent with caller metadata and the context trace ID when present.
+// P returns a panic-level [Tevent] for the default logger.
+// The event includes caller metadata and, when available, [CtxTraceId].
 func P(ctx context.Context) *Tevent {
 	return injectTraceId(newTevent("PANIC", defaultLog), ctx)
 }
@@ -217,6 +224,7 @@ func (p *Tevent) Detail(value string) *Tevent {
 }
 
 // Detailf appends formatted text to the detail buffer using fmt.Sprintf.
+// Formatting is skipped when the event is disabled.
 func (p *Tevent) Detailf(format string, a ...any) *Tevent {
 	if !p.enabled() {
 		return p
@@ -226,7 +234,7 @@ func (p *Tevent) Detailf(format string, a ...any) *Tevent {
 	return p
 }
 
-// Err records err as field "error" when err is non-nil.
+// Err records err in the "error" field when err is non-nil.
 func (p *Tevent) Err(err error) *Tevent {
 	if err != nil && p.enabled() {
 		p.event = p.event.Str("error", err.Error())
@@ -235,7 +243,7 @@ func (p *Tevent) Err(err error) *Tevent {
 	return p
 }
 
-// Msg writes the event with the provided message and returns the same string.
+// Msg writes content as the event message and returns content.
 func (p *Tevent) Msg(content string) string {
 	if !p.enabled() {
 		return content
@@ -252,7 +260,7 @@ func (p *Tevent) Msg(content string) string {
 	return content
 }
 
-// Msgf formats and writes the event message, then returns the formatted string.
+// Msgf formats the event message with fmt.Sprintf, writes it, and returns the result.
 func (p *Tevent) Msgf(format string, a ...any) string {
 	var content string
 

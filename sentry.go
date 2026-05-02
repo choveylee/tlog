@@ -77,7 +77,7 @@ type SentryWriter struct {
 	io.Writer
 }
 
-// simpleLog holds zerolog JSON fields used to build a short title before the raw line.
+// simpleLog holds the JSON fields used to build a concise Sentry title before the raw payload.
 type simpleLog struct {
 	Message string `json:"message"`
 	Kind    string `json:"kind"`
@@ -111,6 +111,9 @@ func buildSentryMessage(p []byte) string {
 
 	if err := jsoniter.Unmarshal(p, &log); err == nil {
 		if log.Kind != "" {
+			if log.Message != "" {
+				log.Message += " "
+			}
 			log.Message += "[" + log.Kind + "]"
 		}
 

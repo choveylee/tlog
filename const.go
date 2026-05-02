@@ -1,15 +1,16 @@
 package tlog
 
-// Configuration keys consumed through tcfg. Values are read during package initialization.
+// Configuration keys read through tcfg during package initialization.
 const (
 	// AppName is the configuration key for the application name. The value is written to
-	// the app_name field and used as the default log file base name.
+	// the app_name field and used as the default base name for log files.
 	AppName = "APP_NAME"
 
 	// LogLevel is the configuration key for the minimum enabled log level.
 	LogLevel = "LOG_LEVEL"
 
-	// LogFileEnable enables output to a rotating log file in addition to standard output.
+	// LogFileEnable is the configuration key that enables output to a rotating log file
+	// in addition to standard output.
 	LogFileEnable = "LOG_FILE_ENABLE"
 
 	// LogFilePath is the configuration key for the active log file path.
@@ -27,10 +28,12 @@ const (
 	// files to retain. A value of zero disables count-based deletion.
 	LogFileCount = "LOG_FILE_COUNT"
 
-	// LogFileCompress enables asynchronous gzip compression of rotated log files.
+	// LogFileCompress is the configuration key that enables asynchronous gzip compression
+	// of rotated log files.
 	LogFileCompress = "LOG_FILE_COMPRESS"
 
-	// SentryDsn is the configuration key for the Sentry project DSN. An empty value disables Sentry.
+	// SentryDsn is the configuration key for the Sentry project DSN. An empty value
+	// disables Sentry reporting.
 	SentryDsn = "SENTRY_DSN"
 )
 

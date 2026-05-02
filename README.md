@@ -29,8 +29,8 @@ import (
 )
 
 func handleRequest(ctx context.Context, requestID string, userID int, err error) {
-	tlog.I(ctx).Msg("service started")
-	tlog.I(ctx).Detailf("user_id=%d", userID).Msgf("received request %s", requestID)
+	tlog.I(ctx).Msg("service initialization completed")
+	tlog.I(ctx).Detailf("user_id=%d", userID).Msgf("request %s accepted for processing", requestID)
 
 	if err != nil {
 		tlog.E(ctx).Err(err).Msg("request processing failed")
@@ -42,7 +42,7 @@ func handleRequest(ctx context.Context, requestID string, userID int, err error)
 
 `tlog` reads configuration during package initialization through `tcfg`. Exported constants such as `AppName`, `LogLevel`, `LogFileEnable`, `LogFilePath`, and `SentryDsn` define the supported keys. Use `tcfg.LocalKey` when environment-specific scoping is required.
 
-Common configuration keys include:
+Common configuration keys include the following:
 
 - `AppName`
 - `LogLevel`
