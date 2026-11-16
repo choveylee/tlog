@@ -1,133 +1,100 @@
 package tlog
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"sync/atomic"
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/json-iterator/go"
 	"github.com/rs/zerolog"
 )
 
-var (
-	// sentryInitState tracks the lifecycle of the package-level Sentry client.
-	sentryInitState atomic.Uint32
-
-	sentryCaptureMessage = sentry.CaptureMessage
-	sentryFlush          = sentry.Flush
-)
+var sentryReady atomic.Bool
 
 const sentryFlushTimeout = 2 * time.Second
 
-const (
-	sentryInitAttempts = 4
-
-	sentryInitIdle uint32 = iota
-	sentryInitStarting
-	sentryInitReady
-	sentryInitFailed
-)
-
-// initSentry attempts to initialize the Sentry client with bounded retries.
-// On success it returns nil. On failure it returns the last error; the caller must
-// log it because package initialization runs before the default logger exists.
+// initSentry validates and installs the SDK client before logging becomes available.
+// SDK construction is local; retrying the same invalid DSN does not recover it.
 func initSentry(sentryDsn string) error {
-	var err error
+	options := sentry.ClientOptions{Dsn: sentryDsn, AttachStacktrace: true}
 
-	for attempt := 1; attempt <= sentryInitAttempts; attempt++ {
-		if attempt > 1 {
-			time.Sleep(time.Second)
-		}
-
-		err = connectSentry(sentryDsn)
-		if err != nil {
-			continue
-		}
-
-		return nil
+	if err := sentry.Init(options); err != nil {
+		return fmt.Errorf("tlog: initialize Sentry: %w", err)
 	}
 
-	return err
+	sentryReady.Store(true)
+
+	return nil
 }
 
-func beginSentryInit() {
-	sentryInitState.Store(sentryInitStarting)
-}
-
-func finishSentryInit(err error) {
-	if err == nil {
-		sentryInitState.Store(sentryInitReady)
-	} else {
-		sentryInitState.Store(sentryInitFailed)
-	}
-}
-
-// connectSentry initializes the Sentry client with the given DSN and stack traces enabled.
-func connectSentry(sentryDsn string) error {
-	return sentry.Init(sentry.ClientOptions{
-		Dsn:              sentryDsn,
-		AttachStacktrace: true,
-	})
-}
-
-// SentryWriter implements zerolog.LevelWriter by forwarding error-level JSON
-// payloads to Sentry after the client has been initialized successfully.
+// SentryWriter implements zerolog.LevelWriter for error/fatal/panic events.
+// Its optional embedded Writer handles plain, unlevelled Write calls; a nil Writer discards them.
 type SentryWriter struct {
 	io.Writer
 }
 
-// simpleLog holds the JSON fields used to build a concise Sentry title before the raw payload.
+// simpleLog contains the title fields used alongside the complete structured payload.
 type simpleLog struct {
 	Message string `json:"message"`
 	Kind    string `json:"kind"`
 }
 
-// WriteLevel implements zerolog.LevelWriter. For levels at or above Error, it
-// forwards the payload to Sentry when the integration is active. It always
-// returns (len(p), nil) so the zerolog pipeline does not fail.
-func (w SentryWriter) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
-	if level >= zerolog.ErrorLevel {
-		captureSentryPayload(p)
+// Write forwards plain data to an explicitly supplied Writer, or consumes it safely when unset.
+func (writer SentryWriter) Write(payload []byte) (int, error) {
+	if writer.Writer != nil {
+		return writer.Writer.Write(payload)
 	}
 
-	return len(p), nil
+	return len(payload), nil
 }
 
-// Close flushes buffered Sentry events when the Sentry client is ready.
-func (w SentryWriter) Close() error {
-	flushSentry()
+// WriteLevel forwards supported severity levels using an isolated Sentry scope.
+// It preserves the logging pipeline's successful-write contract even when forwarding is disabled.
+func (writer SentryWriter) WriteLevel(level zerolog.Level, payload []byte) (int, error) {
+	if level < zerolog.ErrorLevel || level > zerolog.PanicLevel || !sentryReady.Load() {
+		return len(payload), nil
+	}
+
+	message := string(payload)
+	var logData simpleLog
+	if err := json.Unmarshal(payload, &logData); err == nil {
+		title := logData.Message
+		if logData.Kind != "" {
+			if title != "" {
+				title += " "
+			}
+
+			title += "[" + logData.Kind + "]"
+		}
+
+		message = title + "\n" + message
+	}
+
+	hub := sentry.CurrentHub().Clone()
+	sentryLevel := sentry.LevelError
+	if level >= zerolog.FatalLevel {
+		sentryLevel = sentry.LevelFatal
+	}
+
+	hub.Scope().SetLevel(sentryLevel)
+	hub.CaptureMessage(message)
+
+	return len(payload), nil
+}
+
+// Close flushes ready Sentry events and reports a timeout without closing an embedded Writer.
+func (writer SentryWriter) Close() error {
+	if !flushSentry() {
+		return errors.New("tlog: flush Sentry timed out")
+	}
 
 	return nil
 }
 
-func captureSentryPayload(p []byte) {
-	if sentryInitState.Load() == sentryInitReady {
-		sentryCaptureMessage(buildSentryMessage(p))
-	}
-}
-
-func buildSentryMessage(p []byte) string {
-	var log simpleLog
-
-	if err := jsoniter.Unmarshal(p, &log); err == nil {
-		if log.Kind != "" {
-			if log.Message != "" {
-				log.Message += " "
-			}
-			log.Message += "[" + log.Kind + "]"
-		}
-
-		return log.Message + "\n" + string(p)
-	}
-
-	return string(p)
-}
-
+// flushSentry waits for queued events; disabled integrations have nothing to flush.
 func flushSentry() bool {
-	if sentryInitState.Load() != sentryInitReady {
-		return false
-	}
-
-	return sentryFlush(sentryFlushTimeout)
+	return !sentryReady.Load() || sentry.Flush(sentryFlushTimeout)
 }

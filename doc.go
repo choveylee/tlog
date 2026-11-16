@@ -12,6 +12,10 @@
 // Use [D], [I], [W], [E], [F], or [P] to create an event at the corresponding
 // severity. Add optional fields with [Tevent.Detail], [Tevent.Detailf], and
 // [Tevent.Err], then emit the record with [Tevent.Msg] or [Tevent.Msgf].
+// Events are single-use; retained detail fragments share a UTF-8-aware 10000-byte budget.
+// Stop producers and call [Shutdown] before process exit to close owned files, finish backup
+// maintenance, and flush Sentry without closing stdout. File paths require exclusive ownership
+// by one writer/process. Invalid file or Sentry configuration falls back to the remaining outputs.
 //
 // # Configuration
 //
