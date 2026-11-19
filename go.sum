@@ -10,6 +10,8 @@ github.com/choveylee/ttrace v0.0.0-20261116014058-a02a1ddd5db7 h1:36gcTq+SSAgI5b
 github.com/choveylee/ttrace v0.0.0-20261116014058-a02a1ddd5db7/go.mod h1:dN1mUJM89rUNT+M1KLW9Mt1jlljFMph7+IWHaVdKEaw=
 github.com/choveylee/ttrace v0.0.0-20261116234142-05d7c218b32b h1:WgCu5px5qNbAjPp/AMYJPCMWINmIj8j5TWj1HLSlb4E=
 github.com/choveylee/ttrace v0.0.0-20261116234142-05d7c218b32b/go.mod h1:dN1mUJM89rUNT+M1KLW9Mt1jlljFMph7+IWHaVdKEaw=
+github.com/choveylee/ttrace v0.0.0-20261119020621-26f9d63b2ae1 h1:1PcICk1efxv10UF3O13JZG4w7HtCePsMyJg0sDWNtGo=
+github.com/choveylee/ttrace v0.0.0-20261119020621-26f9d63b2ae1/go.mod h1:dN1mUJM89rUNT+M1KLW9Mt1jlljFMph7+IWHaVdKEaw=
 github.com/felixge/httpsnoop v1.1.0 h1:3YtUj32ZZkqZtt3sZZsClsymw/QDuVfpNhoA31zeORc=
 github.com/felixge/httpsnoop v1.1.0/go.mod h1:Zqxgdd+1Rkcz8euOqdr7lqgCRJztwr5hp9vDSi5UZCE=
 github.com/getsentry/sentry-go v0.50.0 h1:gkO59rn/i0RCAXUUTflC5QVbTQGPXbaFabs2olVzc9g=
