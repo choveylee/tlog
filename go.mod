@@ -4,7 +4,7 @@ go 1.27.4
 
 require (
 	github.com/choveylee/tcfg v0.0.0-20261115144344-16ce68da5110
-	github.com/choveylee/ttrace v0.0.0-20261116014058-a02a1ddd5db7
+	github.com/choveylee/ttrace v0.0.0-20261116234142-05d7c218b32b
 	github.com/getsentry/sentry-go v0.50.0
 	github.com/rs/zerolog v1.35.1
 )

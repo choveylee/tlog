@@ -556,12 +556,14 @@ func compressLogFile(sourcePath, destinationPath string) error {
 	if err != nil {
 		return fmt.Errorf("tlog: open compression source: %w", err)
 	}
+
 	defer source.Close()
 
 	temporary, err := os.CreateTemp(filepath.Dir(destinationPath), ".tlog-compress-*")
 	if err != nil {
 		return fmt.Errorf("tlog: create temporary gzip file: %w", err)
 	}
+
 	defer os.Remove(temporary.Name())
 	defer temporary.Close()
 
